@@ -6,137 +6,218 @@
 #include <QTimer>
 #include <QMessageBox>
 #include <QSettings>
+#include <QFrame>
 
-SudokuWindow::SudokuWindow(QWidget *parent) : QMainWindow(parent) {
+
+static const QString BG        = "#F7F6F3";
+static const QString INK       = "#18181B";
+static const QString MUTED     = "#71717A";
+static const QString RULE      = "#D4D4D8";
+static const QString CARD_BG   = "#FFFFFF";
+
+static const QString CLR_EASY  = "#16A34A";
+static const QString CLR_MED   = "#2563EB";
+static const QString CLR_HARD  = "#DC2626";
+static const QString CLR_TIMER = "#18181B";
+static const QString CLR_ERR   = "#DC2626";
+
+
+static QPushButton *makeMenuButton(const QString &label, const QString &accent)
+{
+    QPushButton *btn = new QPushButton(label);
+    btn->setFixedHeight(52);
+    btn->setCursor(Qt::PointingHandCursor);
+    btn->setStyleSheet(QString(
+        "QPushButton {"
+        "  font-family: 'Outfit'; font-size: 13px; font-weight: 600;"
+        "  letter-spacing: 2px; color: %1;"
+        "  background: %2;"
+        "  border: 1px solid %3;"
+        "  border-left: 3px solid %4;"
+        "  border-radius: 6px;"
+        "  padding-left: 18px;"
+        "}"
+        "QPushButton:hover   { background: %5; }"
+        "QPushButton:pressed { background: %6; }")
+        .arg(INK, CARD_BG, RULE, accent)
+        .arg("#EFEFEC")
+        .arg("#E5E4E0")
+    );
+    return btn;
+}
+
+static QFrame *makeDivider()
+{
+    QFrame *f = new QFrame();
+    f->setFrameShape(QFrame::HLine);
+    f->setFixedHeight(1);
+    f->setStyleSheet(QString("background: %1; border: none;").arg(RULE));
+    return f;
+}
+
+
+SudokuWindow::SudokuWindow(QWidget *parent) : QMainWindow(parent)
+{
     stack = new QStackedWidget(this);
     setCentralWidget(stack);
 
+    setStyleSheet(QString("QMainWindow, QWidget#page { background: %1; }").arg(BG));
+    setMinimumSize(520, 680);
+    setWindowTitle("Судоку");
+
     setupMenuPage();
     setupGamePage();
-
-    setMinimumSize(520, 680);
-    setWindowTitle("Судоку Pro");
 }
 
-void SudokuWindow::setupMenuPage() {
+
+void SudokuWindow::setupMenuPage()
+{
     QWidget *page = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(40, 50, 40, 50);
+    page->setObjectName("page");
+    page->setStyleSheet(QString("background: %1;").arg(BG));
+
+    QVBoxLayout *vl = new QVBoxLayout(page);
+    vl->setContentsMargins(48, 60, 48, 60);
+    vl->setSpacing(0);
+
 
     QLabel *title = new QLabel("СУДОКУ");
-    title->setStyleSheet("font-size: 52px; font-weight: bold; color: #1a2740; letter-spacing: 4px;");
     title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet(QString(
+        "font-family: 'Outfit'; font-size: 54px; font-weight: 300;"
+        "color: %1; letter-spacing: 12px; background: transparent;")
+        .arg(INK));
+
 
     statsLabel = new QLabel();
-    statsLabel->setAlignment(Qt::AlignCenter);
-    statsLabel->setStyleSheet("font-size: 15px; color: #4A5568; line-height: 140%; padding: 15px; background: #EDF2F7; border-radius: 8px;");
+    statsLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    statsLabel->setWordWrap(true);
+    statsLabel->setStyleSheet(QString(
+        "font-family: 'Outfit'; font-size: 13px; color: %1;"
+        "background: %2; border: 1px solid %3;"
+        "border-radius: 8px; padding: 16px 20px; line-height: 180%;")
+        .arg(MUTED, CARD_BG, RULE));
     updateStatsLabels();
 
-    QPushButton *btnEasy = new QPushButton("ЛЕГКИЙ УРОВЕНЬ");
-    QPushButton *btnMed  = new QPushButton("СРЕДНИЙ УРОВЕНЬ");
-    QPushButton *btnHard = new QPushButton("СЛОЖНЫЙ УРОВЕНЬ");
+    QPushButton *btnEasy = makeMenuButton("ЛЁГКИЙ",   CLR_EASY);
+    QPushButton *btnMed  = makeMenuButton("СРЕДНИЙ",  CLR_MED);
+    QPushButton *btnHard = makeMenuButton("СЛОЖНЫЙ",  CLR_HARD);
 
-    // Красивый QSS-стиль для кнопок меню (без свойства filter!)
-    QString btnStyle =
-        "QPushButton {"
-        "  height: 48px; font-size: 16px; font-weight: bold; color: white;"
-        "  border: none; border-radius: 6px; padding: 0 20px;"
-        "}"
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 30); }"
-        "QPushButton:pressed { background-color: rgba(0, 0, 0, 40); }";
-
-    btnEasy->setStyleSheet("QPushButton { background-color: #2E7D32; }" + btnStyle);
-    btnMed->setStyleSheet("QPushButton { background-color: #1565C0; }" + btnStyle);
-    btnHard->setStyleSheet("QPushButton { background-color: #C62828; }" + btnStyle);
-
-    connect(btnEasy, &QPushButton::clicked, [this]{ currentDiff = SudokuBoard::Easy; startGame(); });
+    connect(btnEasy, &QPushButton::clicked, [this]{ currentDiff = SudokuBoard::Easy;   startGame(); });
     connect(btnMed,  &QPushButton::clicked, [this]{ currentDiff = SudokuBoard::Medium; startGame(); });
-    connect(btnHard, &QPushButton::clicked, [this]{ currentDiff = SudokuBoard::Hard; startGame(); });
+    connect(btnHard, &QPushButton::clicked, [this]{ currentDiff = SudokuBoard::Hard;   startGame(); });
 
-    layout->addWidget(title);
-    layout->addStretch();
-    layout->addWidget(statsLabel);
-    layout->addSpacing(30);
-    layout->addWidget(btnEasy);
-    layout->addSpacing(10);
-    layout->addWidget(btnMed);
-    layout->addSpacing(10);
-    layout->addWidget(btnHard);
-    layout->addStretch();
+    vl->addWidget(title);
+    vl->addSpacing(6);
+    vl->addSpacing(36);
+    vl->addWidget(makeDivider());
+    vl->addSpacing(24);
+    vl->addWidget(statsLabel);
+    vl->addStretch(1);
+    vl->addWidget(btnEasy);
+    vl->addSpacing(8);
+    vl->addWidget(btnMed);
+    vl->addSpacing(8);
+    vl->addWidget(btnHard);
 
     stack->addWidget(page);
 }
 
-void SudokuWindow::setupGamePage() {
+
+void SudokuWindow::setupGamePage()
+{
     QWidget *page = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(15, 15, 15, 15);
+    page->setObjectName("page");
+    page->setStyleSheet(QString("background: %1;").arg(BG));
 
-    // ВЕРХНЯЯ ПАНЕЛЬ
-    QHBoxLayout *topLayout = new QHBoxLayout();
+    QVBoxLayout *vl = new QVBoxLayout(page);
+    vl->setContentsMargins(20, 18, 20, 20);
+    vl->setSpacing(0);
 
-    // Простая текстовая кнопка возврата
-    QPushButton *btnBack = new QPushButton("В меню");
-    btnBack->setStyleSheet(
-        "QPushButton { background: #64748B; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; }"
-        "QPushButton:hover { background: #475569; }"
-    );
 
-    // Жизни по центру верхней панели в текстовом формате
-    livesLabel = new QLabel("Ошибки: 0/3");
-    livesLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #C62828;");
+    QHBoxLayout *topRow = new QHBoxLayout();
+    topRow->setSpacing(0);
 
-    // Таймер справа
+    QPushButton *btnBack = new QPushButton("← Меню");
+    btnBack->setCursor(Qt::PointingHandCursor);
+    btnBack->setStyleSheet(QString(
+        "QPushButton { font-family:'Outfit'; font-size:13px; font-weight:500;"
+        "  color:%1; background:transparent; border:none; padding:0; }"
+        "QPushButton:hover { color:%2; }")
+        .arg(MUTED, INK));
+
+    livesLabel = new QLabel("● ● ●");
+    livesLabel->setAlignment(Qt::AlignCenter);
+    livesLabel->setStyleSheet(QString(
+        "font-family:'Outfit'; font-size:18px; font-weight:400; color:%1;"
+        "background:transparent;").arg(CLR_EASY));
+
     timerLabel = new QLabel("00:00");
-    timerLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #1e293b; font-family: monospace;");
+    timerLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    timerLabel->setStyleSheet(QString(
+        "font-family:'Outfit'; font-size:15px; font-weight:500;"
+        "color:%1; letter-spacing:1px; background:transparent;").arg(CLR_TIMER));
 
-    topLayout->addWidget(btnBack);
-    topLayout->addStretch();
-    topLayout->addWidget(livesLabel);
-    topLayout->addStretch();
-    topLayout->addWidget(timerLabel);
+    topRow->addWidget(btnBack,    0, Qt::AlignVCenter);
+    topRow->addStretch();
+    topRow->addWidget(livesLabel, 0, Qt::AlignVCenter);
+    topRow->addStretch();
+    topRow->addWidget(timerLabel, 0, Qt::AlignVCenter);
 
-    // Игровое поле
+
     board = new SudokuBoard(this);
 
-    // НИЖНЯЯ ПАНЕЛЬ
-    QHBoxLayout *bottomLayout = new QHBoxLayout();
 
-    // Кнопка-переключатель режима
-
-
-    QPushButton *btnHint = new QPushButton("Подсказать ячейку");
-    btnHint->setStyleSheet(
-        "QPushButton { background: #D97706; color: white; height: 44px; font-size: 15px; font-weight: bold; border: none; border-radius: 6px; }"
-        "QPushButton:hover { background: #B45309; }"
+    QPushButton *btnHint = new QPushButton("Подсказать");
+    btnHint->setFixedHeight(48);
+    btnHint->setCursor(Qt::PointingHandCursor);
+    btnHint->setStyleSheet(QString(
+        "QPushButton {"
+        "  font-family:'Outfit'; font-size:13px; font-weight:600;"
+        "  letter-spacing:1.5px; color:%1;"
+        "  background:transparent; border:1px solid %2;"
+        "  border-radius:6px;"
+        "}"
+        "QPushButton:hover   { background:%3; }"
+        "QPushButton:pressed { background:%4; }")
+        .arg(INK, RULE)
+        .arg("#EFEFEC").arg("#E5E4E0")
     );
 
-    bottomLayout->addWidget(btnHint);
+    vl->addLayout(topRow);
+    vl->addSpacing(14);
+    vl->addWidget(makeDivider());
+    vl->addSpacing(20);
+    vl->addWidget(board, 0, Qt::AlignHCenter);
+    vl->addSpacing(20);
+    vl->addWidget(makeDivider());
+    vl->addSpacing(16);
+    vl->addWidget(btnHint);
 
-    layout->addLayout(topLayout);
-    layout->addSpacing(10);
-    layout->addWidget(board, 0, Qt::AlignCenter);
-    layout->addSpacing(15);
-    layout->addLayout(bottomLayout);
 
     gameTimer = new QTimer(this);
-
     connect(gameTimer, &QTimer::timeout, this, &SudokuWindow::updateTimer);
+
+
     connect(btnBack, &QPushButton::clicked, this, &SudokuWindow::switchToMenu);
     connect(btnHint, &QPushButton::clicked, [this]() {
-        if (!board->giveHint()) {
-            QMessageBox::information(this, "Подсказка", "Все доступные ячейки уже заполнены верно!");
-        }
+        if (!board->giveHint())
+            QMessageBox::information(this, "Подсказка", "Все ячейки уже заполнены.");
     });
     connect(board, &SudokuBoard::puzzleSolved, this, &SudokuWindow::onSolved);
-    connect(board, &SudokuBoard::wrongMove, this, &SudokuWindow::onWrongMove);
+    connect(board, &SudokuBoard::wrongMove,    this, &SudokuWindow::onWrongMove);
+
     stack->addWidget(page);
 }
 
-void SudokuWindow::startGame() {
+
+void SudokuWindow::startGame()
+{
     elapsedSeconds = 0;
-    livesCount = 3; // Сброс жизней
-    livesLabel->setText("Ошибки: 0/3");
+    livesCount = 3;
+    livesLabel->setText("● ● ●");
+    livesLabel->setStyleSheet(QString(
+        "font-family:'Outfit'; font-size:18px; color:%1; background:transparent;").arg(CLR_EASY));
     timerLabel->setText("00:00");
     board->resetHighlight();
     board->newGame(currentDiff);
@@ -144,66 +225,86 @@ void SudokuWindow::startGame() {
     gameTimer->start(1000);
 }
 
-void SudokuWindow::switchToMenu() {
+void SudokuWindow::switchToMenu()
+{
     gameTimer->stop();
     updateStatsLabels();
     stack->setCurrentIndex(0);
 }
 
-void SudokuWindow::updateTimer() {
-    elapsedSeconds++;
-    int m = elapsedSeconds / 60;
-    int s = elapsedSeconds % 60;
-    timerLabel->setText(QString("%1:%2").arg(m, 2, 10, QChar('0')).arg(s, 2, 10, QChar('0')));
+void SudokuWindow::updateTimer()
+{
+    ++elapsedSeconds;
+    timerLabel->setText(QString("%1:%2")
+        .arg(elapsedSeconds / 60, 2, 10, QChar('0'))
+        .arg(elapsedSeconds % 60, 2, 10, QChar('0')));
 }
 
-void SudokuWindow::onSolved() {
+void SudokuWindow::onSolved()
+{
     gameTimer->stop();
     saveResult(elapsedSeconds);
-    QMessageBox::information(this, "Победа! 🎉",
-        QString("Поздравляем! Вы успешно решили судоку.\nВаше время: %1").arg(timerLabel->text()));
+    QMessageBox::information(this, "Победа!",
+        QString("Судоку решено.\nВремя: %1").arg(timerLabel->text()));
     switchToMenu();
 }
 
-void SudokuWindow::updateStatsLabels() {
-    QSettings s("MyCompany", "SudokuGame");
-    int total = s.value("totalSolved", 0).toInt();
-    QString bestE = s.value("best_Easy", "--:--").toString();
-    QString bestM = s.value("best_Medium", "--:--").toString();
-    QString bestH = s.value("best_Hard", "--:--").toString();
+void SudokuWindow::onWrongMove()
+{
+    --livesCount;
+    int errors = 3 - livesCount;
 
-    statsLabel->setText(QString("<b>Решено всего головоломок:</b> %1<br><br>"
-                                "<b>ЛИЧНЫЕ РЕКОРДЫ ВРЕМЕНИ:</b><br>"
-                                "Легко: %2<br>"
-                                "Средне: %3<br>"
-                                "Сложно: %4")
-                        .arg(total).arg(bestE).arg(bestM).arg(bestH));
+    QString dots;
+    for (int i = 0; i < 3; ++i) {
+        if (i > 0) dots += " ";
+        dots += (i < livesCount) ? "●" : "○";
+    }
+    livesLabel->setText(dots);
+
+    if (livesCount <= 0) {
+        livesLabel->setStyleSheet(QString(
+            "font-family:'Outfit'; font-size:18px; color:%1; background:transparent;").arg(CLR_ERR));
+        gameTimer->stop();
+        QMessageBox::critical(this, "Игра окончена", "Допущено 3 ошибки. Попробуйте снова!");
+        switchToMenu();
+    } else if (errors >= 2) {
+        livesLabel->setStyleSheet(QString(
+            "font-family:'Outfit'; font-size:18px; color:%1; background:transparent;").arg(CLR_ERR));
+    } else {
+        livesLabel->setStyleSheet(QString(
+            "font-family:'Outfit'; font-size:18px; color:%1; background:transparent;").arg(CLR_EASY));
+    }
 }
 
-void SudokuWindow::saveResult(int sec) {
+
+void SudokuWindow::updateStatsLabels()
+{
+    QSettings s("MyCompany", "SudokuGame");
+    int total   = s.value("totalSolved", 0).toInt();
+    QString bE  = s.value("best_Easy",   "--:--").toString();
+    QString bM  = s.value("best_Medium", "--:--").toString();
+    QString bH  = s.value("best_Hard",   "--:--").toString();
+
+    statsLabel->setText(
+        QString("<b style='color:#18181B;'>Решено головоломок:</b> %1<br><br>"
+                "<span style='letter-spacing:1px;'>ЛУЧШЕЕ ВРЕМЯ</span><br>"
+                "Лёгкий:&nbsp;&nbsp;%2<br>"
+                "Средний:&nbsp;%3<br>"
+                "Сложный:&nbsp;%4")
+        .arg(total).arg(bE).arg(bM).arg(bH));
+}
+
+void SudokuWindow::saveResult(int sec)
+{
     QSettings s("MyCompany", "SudokuGame");
     s.setValue("totalSolved", s.value("totalSolved", 0).toInt() + 1);
 
-    QString diffKey = (currentDiff == SudokuBoard::Easy) ? "Easy" :
-                      (currentDiff == SudokuBoard::Medium) ? "Medium" : "Hard";
+    QString key = (currentDiff == SudokuBoard::Easy)   ? "Easy"   :
+                  (currentDiff == SudokuBoard::Medium)  ? "Medium" : "Hard";
 
-    int currentBest = s.value("best_" + diffKey + "_sec", 999999).toInt();
-
+    int currentBest = s.value("best_" + key + "_sec", 999999).toInt();
     if (sec < currentBest) {
-        s.setValue("best_" + diffKey + "_sec", sec);
-        s.setValue("best_" + diffKey, timerLabel->text());
-    }
-}
-void SudokuWindow::onWrongMove() {
-    livesCount--;
-
-    // Считаем количество допущенных ошибок
-    int errorsMade = 3 - livesCount;
-    livesLabel->setText(QString("Ошибки: %1/3").arg(errorsMade));
-
-    if (livesCount <= 0) {
-        gameTimer->stop();
-        QMessageBox::critical(this, "Игра окончена", "Вы совершили 3 ошибки. Попробуйте еще раз!");
-        switchToMenu();
+        s.setValue("best_" + key + "_sec", sec);
+        s.setValue("best_" + key, timerLabel->text());
     }
 }
